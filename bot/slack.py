@@ -1,7 +1,7 @@
 from collections import namedtuple
 import logging
 import os
-from slackclient import SlackClient
+from slack.rtm import client as SlackClient
 from . import KARMA_BOT, SLACK_CLIENT, USERNAME_CACHE, CONFIG
 
 # bot commands

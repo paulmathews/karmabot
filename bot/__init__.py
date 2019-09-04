@@ -5,7 +5,7 @@ import pickle
 import re
 import sys
 import yaml
-from slackclient import SlackClient
+from slack.rtm import client as SlackClient
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)-12s %(levelname)-8s' +
                     ' %(message)s',
