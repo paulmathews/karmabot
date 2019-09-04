@@ -1,8 +1,8 @@
 from collections import namedtuple
 import logging
 import os
-from slack import RTMClient
-from . import KARMA_BOT, SLACK_CLIENT, USERNAME_CACHE, CONFIG
+import slack
+from . import KARMA_BOT, SLACK_WEB_CLIENT, SLACK_RTM_CLIENT, USERNAME_CACHE, CONFIG
 
 # bot commands
 from commands.ban import ban_user, unban_user, unban_all
@@ -10,7 +10,7 @@ from commands.help import create_commands_table
 from commands.score import get_karma, top_karma
 from commands.dice import roll
 
-Message = namedtuple('Message', 'giverid channel text')
+Message = namedtuple('Message', 'giverid channel text web_client')
 GENERAL_CHANNEL = CONFIG['GENERAL_CHANNEL_ID']
 ADMINS = CONFIG['ADMINS']
 TEXT_FILTER_REPLIES = CONFIG['TEXT_FILTER_REPLIES']
@@ -43,28 +43,27 @@ def lookup_username(userid):
     user = userid.strip('<>@')
     username = USERNAME_CACHE.get(user)
     if not username:
-        userinfo = SLACK_CLIENT.api_call("users.info", user=user)
+        userinfo = SLACK_WEB_CLIENT.users_info(user=user)
         username = userinfo['user']['name']
         USERNAME_CACHE[user] = username
     return username
 
 
-def post_msg(channel_or_user, text):
+def post_msg(channel_or_user, text, web_client):
     logging.debug('posting to {}'.format(channel_or_user))
     logging.debug(text)
-    SLACK_CLIENT.api_call("chat.postMessage",
-                          channel=channel_or_user,
-                          text=text,
-                          link_names=True,  # convert # and @ in links
-                          as_user=True,
-                          unfurl_links=False,
-                          unfurl_media=False)
+    web_client.chat_postMessage(
+                channel=channel_or_user,
+                text=text,
+                link_names=True,  # convert # and @ in links
+                as_user=True,
+                unfurl_links=False,
+                unfurl_media=False)
 
 
 def _get_cmd(text, private=True):
     if private:
         return text.split()[0].strip().lower()
-    # TODO: Botname should be pulled from config
     if not text.strip('<>@').startswith(KARMA_BOT):
         return None
     if text.strip().count(' ') < 1:
@@ -111,20 +110,16 @@ def perform_text_replacements(text):
     replace_word = TEXT_FILTER_REPLIES.get(match_word)
     return 'To _{}_ I say: {}'.format(match_word, replace_word)
 
-
-def parse_next_msg():
+@SLACK_RTM_CLIENT.run_on(event="message")
+def parse_next_msg(**payload):
     """Parse next message posted on slack for actions todo by bot"""
-    msg = SLACK_CLIENT.rtm_read()
-    if not msg:
+    web_client = payload['web_client']
+    msg = payload['data']
+    if not payload:
         return None
-    msg = msg[0]
-    user = msg.get('user')
-    channel = msg.get('channel')
-    text = msg.get('text')
-    type_event = msg.get('type')
-    if type_event == 'channel_created':
-        bot_joins_new_channel(msg)
-        return None
+    user = msg['user']
+    channel = msg['channel']
+    text = msg['text']
     # TODO: investigate issue with getting random dictionaries.
     if (not isinstance(channel, str) or
        not isinstance(user, str) or
@@ -135,12 +130,12 @@ def parse_next_msg():
         return None
     text_replace_output = text and perform_text_replacements(text)
     if text_replace_output:
-        post_msg(channel, text_replace_output)
+        post_msg(channel, text_replace_output, web_client)
     private = channel and channel.startswith('D')
     cmd_output = perform_bot_cmd(msg, private)
     if cmd_output:
-        post_msg(channel, cmd_output)
+        post_msg(channel, cmd_output, web_client)
         return None
     if not channel or not text:
         return None
-    return Message(giverid=user, channel=channel, text=text)
+    return Message(giverid=user, channel=channel, text=text, web_client=web_client)

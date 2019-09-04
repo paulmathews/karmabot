@@ -3,14 +3,14 @@ import pickle
 import sys
 import time
 
-from bot import SLACK_CLIENT, KARMA_CACHE, KARMA_ACTION, karmas
+from bot import SLACK_WEB_CLIENT, SLACK_RTM_CLIENT, KARMA_CACHE, KARMA_ACTION, karmas
 from bot.slack import parse_next_msg
 from bot.karma import process_karma_changes
 
 SAVE_INTERVAL = 60
 
 # Slack Real Time Messaging API - https://api.slack.com/rtm
-if not SLACK_CLIENT.rtm_connect():
+if not SLACK_RTM_CLIENT.start():
     logging.error('Connection Failed, invalid token?')
     sys.exit(1)
 

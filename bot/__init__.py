@@ -5,7 +5,8 @@ import pickle
 import re
 import sys
 import yaml
-from slack import RTMClient
+import slack
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)-12s %(levelname)-8s' +
                     ' %(message)s',
@@ -39,7 +40,8 @@ if not botuser or not token:
                  'SLACK_KARMA_TOKEN in env and config')
     sys.exit(1)
 KARMA_BOT = botuser
-SLACK_CLIENT = RTMClient(token)
+SLACK_WEB_CLIENT = slack.WebClient(token=token)
+SLACK_RTM_CLIENT = slack.RTMClient(token=token)
 MAX_POINTS = 5
 # the first +/- is merely signaling, start counting (regex capture)
 # from second +/- onwards, so bob++ adds 1 point, bob+++ = +2, etc
